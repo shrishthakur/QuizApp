@@ -3,62 +3,148 @@ package com.example.myquiz;
 import android.os.Bundle;
 
 import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
+import android.os.StrictMode;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.ProtocolException;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 
 
 /**
  * A simple {@link Fragment} subclass.
- * Use the {@link LeaderboardFragment#newInstance} factory method to
+
  * create an instance of this fragment.
  */
 public class LeaderboardFragment extends Fragment {
-    // TODO: Rename parameter arguments, choose names that match
-    // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-    private static final String ARG_PARAM1 = "param1";
-    private static final String ARG_PARAM2 = "param2";
+    private RecyclerView recyclerView;
+    private List<LeaderboardViewModel> leaderboardViewModelList = new ArrayList<>();
+    private RecyclerView.LayoutManager layoutManager;
+    private LeaderboardAdapter leaderboardAdapter;
 
-    // TODO: Rename and change types of parameters
-    private String mParam1;
-    private String mParam2;
+    String address = "http://192.168.43.140/QuizApp/fetchleaderboard.php";
+    InputStream inputStream=null;
+    String line=null;
+    String result = null;
+    String[] name;int[] rank;int[] score;
+
+    TextView textView;
 
     public LeaderboardFragment() {
-        // Required empty public constructor
-    }
 
-    /**
-     * Use this factory method to create a new instance of
-     * this fragment using the provided parameters.
-     *
-     * @param param1 Parameter 1.
-     * @param param2 Parameter 2.
-     * @return A new instance of fragment LeaderboardFragment.
-     */
-    // TODO: Rename and change types and number of parameters
-    public static LeaderboardFragment newInstance(String param1, String param2) {
-        LeaderboardFragment fragment = new LeaderboardFragment();
-        Bundle args = new Bundle();
-        args.putString(ARG_PARAM1, param1);
-        args.putString(ARG_PARAM2, param2);
-        fragment.setArguments(args);
-        return fragment;
-    }
-
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
-        }
     }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
+        //allowing network in maun thread
+        StrictMode.setThreadPolicy((new StrictMode.ThreadPolicy.Builder().permitNetwork().build()));
         // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_leaderboard, container, false);
+        View view = inflater.inflate(R.layout.fragment_leaderboard, container, false);
+
+        recyclerView = view.findViewById(R.id.rv);
+        textView =view.findViewById(R.id.tvv);
+        layoutManager = new GridLayoutManager(getContext(), 1);
+        recyclerView.setHasFixedSize(true);
+        recyclerView.setLayoutManager(layoutManager);
+        leaderboardAdapter = new LeaderboardAdapter(leaderboardViewModelList);
+        recyclerView.setAdapter(leaderboardAdapter);
+       //  leaderboardViewModelList.add(new LeaderboardViewModel(1,"Shrish",100));
+        prepareLeaderboard();
+        return view;
     }
-}
+
+    private void prepareLeaderboard() {
+        /*String[] names = {"Shubham","Riyas","NIsha","Brajesh","Ravi","Shaniya","Chintu","Bablu","Bunty","Sonu Kumari"};
+        for (int i=0;i<10;i++)
+        {
+            leaderboardViewModelList.add(new LeaderboardViewModel(i+1,names[i],100-i));
+        }*/
+        try {
+            URL url = new URL(address);
+            HttpURLConnection httpURLConnection = (HttpURLConnection) url.openConnection();
+            httpURLConnection.setRequestMethod("POST");
+            httpURLConnection.setDoOutput(true);
+            httpURLConnection.setDoInput(true);
+
+
+            inputStream= new BufferedInputStream(httpURLConnection.getInputStream());
+
+            BufferedReader br = new BufferedReader(new InputStreamReader(inputStream));
+            //StringBuilder stringBuilder= new StringBuilder();
+
+            while ((line=br.readLine())!=null)/////
+            {
+                result+=line;
+            }
+            br.close();
+            inputStream.close();
+            httpURLConnection.disconnect();
+
+  //          Log.d("satgeo","Bofore");
+
+            try {
+                String crappyPrefix = "null";//was https://stackoverflow.com/questions/36600076/value-null-of-type-org-json-jsonobject1-cannot-be-converted-to-jsonobject
+
+                if(result.startsWith(crappyPrefix)){
+                    result = result.substring(crappyPrefix.length(), result.length());
+                }
+
+                JSONArray jsonArray = new JSONArray(result);
+                JSONObject jsonObject = null;
+
+                name = new String[jsonArray.length()];
+                rank = new int[jsonArray.length()];
+                score = new int[jsonArray.length()];
+
+
+
+                for (int i = 0; i < jsonArray.length(); i++) {
+                    jsonObject = jsonArray.getJSONObject(i);
+                    name[i] = jsonObject.getString("username");
+                    rank[i] = jsonObject.getInt("rank");
+                    score[i] = jsonObject.getInt("score");
+
+                    leaderboardViewModelList.add(new LeaderboardViewModel(rank[i], name[i], score[i]));
+
+                }
+                //Log.d("satge2","json values extracted");
+
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+
+
+        } catch (MalformedURLException e){
+
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+
+
+    }
+
+
+
+    }
+
+
